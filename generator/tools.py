@@ -145,7 +145,8 @@ def generate_protocol(config, services=None):
 
     # generate every protocol service
     protocol_services = []
-    for _ in range(protocol_service_number):
+    protocol_service_index = 0
+    while protocol_service_index < protocol_service_number:
 
         # if services are pooled, choose one
         if config['service']['strategy'] == 'pool':
@@ -204,11 +205,12 @@ def generate_protocol(config, services=None):
 
         # if times is big enough that some window are completely over
         # 'day_number', trim the excess
-        max_times = int((day_number - start - initial_shift) / frequency + 1)
+        max_times = int((day_number - start - initial_shift) / frequency)
         if times > max_times:
             times = max_times
         
         if times > 0:
+            protocol_service_index += 1
             protocol_services.append({
                 'service': service_name,
                 'start': start,
