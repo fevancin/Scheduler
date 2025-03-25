@@ -2,6 +2,62 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.patches import Patch
 import numpy as np
+import csv
+import json
+
+
+def generate_csv_results_file(input_folder_path):
+    
+    results_data = []
+
+    # iterate every directory
+    for group_path in input_folder_path.iterdir():
+        
+        if not group_path.is_dir():
+            continue
+
+        # iterate every instance
+        for results_path in group_path.iterdir():
+
+            # only valid JSON files that starts with 'SOL_'
+            if results_path.suffix != '.json':
+                continue
+            if results_path.name == 'info.json':
+                continue
+            if not results_path.name.startswith('SOL_'):
+                continue
+
+            with open(results_path, 'r') as file:
+                results = json.load(file)
+
+            # add those results to the result list
+            results_info = results['info']
+            results_info['group'] = results_path.parent.name
+            results_info['instance'] = results_path.name
+
+            results_data.append(results['info'])
+
+    field_names = [
+        'group',
+        'instance',
+        'method',
+        'model_creation_time',
+        'model_solving_time',
+        'solver_internal_time',
+        'status',
+        'termination_condition',
+        'lower_bound',
+        'upper_bound',
+        'gap',
+        'objective_function_value'
+    ]
+
+    # write results to csv file
+    with open(input_folder_path.joinpath('results.csv'), 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=field_names, dialect='excel-tab')
+        writer.writeheader()
+        writer.writerows(results_data)
+
 
 def plot_averages(group_names, averages, save_path):
     x = np.arange(len(group_names))
@@ -26,6 +82,72 @@ def plot_averages(group_names, averages, save_path):
 
     plt.savefig(save_path)
     plt.close('all')
+
+
+def generate_averages_plot(input_folder_path):
+
+    group_names = []
+
+    model_creation_time_averages = []
+    model_solving_time_averages = []
+    solver_internal_time_averages = []
+
+    averages = {
+        'model_creation_time': [],
+        'model_solving_time': [],
+        'solver_internal_time': []
+    }
+
+    # iterate every directory
+    for group_path in input_folder_path.iterdir():
+        
+        if not group_path.is_dir():
+            continue
+
+        model_creation_time_sum = 0.0
+        model_solving_time_sum = 0.0
+        solver_internal_time_sum = 0.0
+
+        instance_number = 0
+
+        # iterate every instance
+        for results_path in group_path.iterdir():
+
+            # only valid JSON files that starts with 'SOL_'
+            if results_path.suffix != '.json':
+                continue
+            if results_path.name == 'info.json':
+                continue
+            if not results_path.name.startswith('SOL_'):
+                continue
+
+            with open(results_path, 'r') as file:
+                results = json.load(file)
+
+            # keep track of the time sums for this group
+            results_info = results['info']
+            model_creation_time_sum += results_info['model_creation_time']
+            model_solving_time_sum += results_info['model_solving_time']
+            solver_internal_time_sum += results_info['solver_internal_time']
+
+            # the istance number is used in the average computation
+            instance_number += 1
+        
+        # if there is at least one valid instance in this group
+        if instance_number > 0:
+
+            # add the group name in a list
+            group_name = group_path.name
+            group_name = group_name.removeprefix('equal_resources_')
+            group_names.append(group_name)
+            
+            # add averages in their respective lists
+            averages['model_creation_time'].append(model_creation_time_sum / instance_number)
+            averages['model_solving_time'].append(model_solving_time_sum / instance_number)
+            averages['solver_internal_time'].append(solver_internal_time_sum / instance_number)
+
+    # plot the averages for each group
+    plot_averages(group_names, averages, input_folder_path.joinpath('time_averages.png'))
 
 
 def plot_master_instance(instance, results, save_path):
@@ -226,8 +348,37 @@ def plot_master_instance(instance, results, save_path):
     ax2.set_xlabel('Days', weight='bold', labelpad=6)
     ax2.set_ylabel('Requests', weight='bold', labelpad=8)
 
-    fig.suptitle(f'Solution of instance', weight='bold')
+    fig.suptitle(f'Solution of instance {save_path.name.removesuffix('.png')}', weight='bold')
 
     # plt.show()
     plt.savefig(save_path, dpi=500)
     plt.close('all')
+
+
+def plot_all_instances(input_folder_path):
+
+    # iterate every directory
+    for group_path in input_folder_path.iterdir():
+        
+        if not group_path.is_dir():
+            continue
+
+        # iterate every instance
+        for results_path in group_path.iterdir():
+
+            # only valid JSON files that starts with 'SOL_'
+            if results_path.suffix != '.json':
+                continue
+            if results_path.name == 'info.json':
+                continue
+            if not results_path.name.startswith('SOL_'):
+                continue
+
+            with open(results_path, 'r') as file:
+                results = json.load(file)
+                
+            instance_path = results_path.parent.joinpath(results_path.name.removeprefix('SOL_'))
+            with open(instance_path) as file:
+                instance = json.load(file)
+            
+            plot_master_instance(instance, results, instance_path.parent.joinpath(instance_path.name.removesuffix('.json') + '.png'))
