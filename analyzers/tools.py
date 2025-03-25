@@ -6,7 +6,7 @@ import csv
 import json
 
 
-def generate_csv_results_file(input_folder_path):
+def generate_csv_results_file(input_folder_path, group_prefix=None):
     
     results_data = []
 
@@ -14,6 +14,9 @@ def generate_csv_results_file(input_folder_path):
     for group_path in input_folder_path.iterdir():
         
         if not group_path.is_dir():
+            continue
+
+        if group_prefix is not None and not group_path.name.startswith(group_prefix):
             continue
 
         # iterate every instance
@@ -60,6 +63,7 @@ def generate_csv_results_file(input_folder_path):
 
 
 def plot_averages(group_names, averages, save_path):
+
     x = np.arange(len(group_names))
     width = 0.25
     multiplier = 0
@@ -73,18 +77,18 @@ def plot_averages(group_names, averages, save_path):
         multiplier += 1
         
         if attribute == 'model_solving_time':
-            ax.bar_label(rects, padding=3)
+            ax.bar_label(rects, padding=3, fontsize=5)
 
     ax.set_ylabel('Time (s)')
     ax.set_title('Average group solving times')
-    ax.set_xticks(x + width, group_names)
+    ax.set_xticks(x + width, group_names, fontsize=5)
     ax.legend(loc='upper right')
 
     plt.savefig(save_path)
     plt.close('all')
 
 
-def generate_averages_plot(input_folder_path):
+def generate_averages_plot(input_folder_path, group_prefix=None):
 
     group_names = []
 
@@ -98,6 +102,9 @@ def generate_averages_plot(input_folder_path):
     for group_path in input_folder_path.iterdir():
         
         if not group_path.is_dir():
+            continue
+
+        if group_prefix is not None and not group_path.name.startswith(group_prefix):
             continue
 
         model_creation_time_sum = 0.0
@@ -135,6 +142,9 @@ def generate_averages_plot(input_folder_path):
             # add the group name in a list
             group_name = group_path.name
             group_name = group_name.removeprefix('equal_resources_')
+            group_name = group_name.removeprefix('operator_overlap_')
+            group_name = group_name.removeprefix('requests_')
+            group_name = group_name.removeprefix('var_patients_')
             group_names.append(group_name)
             
             # add averages in their respective lists
@@ -344,19 +354,22 @@ def plot_master_instance(instance, results, save_path):
     ax2.set_xlabel('Days', weight='bold', labelpad=6)
     ax2.set_ylabel('Requests', weight='bold', labelpad=8)
 
-    fig.suptitle(f'Solution of instance {save_path.name.removesuffix('.png')}', weight='bold')
+    fig.suptitle(f'Solution of instance {save_path.name.removesuffix(".png")}', weight='bold')
 
     # plt.show()
     plt.savefig(save_path, dpi=500)
     plt.close('all')
 
 
-def plot_all_instances(input_folder_path):
+def plot_all_instances(input_folder_path, group_prefix=None):
 
     # iterate every directory
     for group_path in input_folder_path.iterdir():
-        
+
         if not group_path.is_dir():
+            continue
+
+        if group_prefix is not None and not group_path.name.startswith(group_prefix):
             continue
 
         # iterate every instance
