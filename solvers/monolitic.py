@@ -9,12 +9,16 @@ from tools import get_monolitic_model, get_results_from_monolitic_model
 parser = argparse.ArgumentParser(prog='monolitic.py', description='Solve monolitic model')
 parser.add_argument('-i', '--input', type=Path, help='Folder with the instances', required=True)
 parser.add_argument('--inefficient-operators', action='store_true', help='Use inefficient operator constraints')
+parser.add_argument('-s', '--solver', type=str, default='gurobi', choices=['gurobi', 'glpk'], help='The solver used')
+parser.add_argument('-t', '--time-limit', type=int, help='Optional solver time limit')
 parser.add_argument('-v', '--verbose', action='store_true')
 args = parser.parse_args()
 
 input_folder_path = Path(args.input).resolve()
-verbose = bool(args.verbose)
 use_inefficient_operators = bool(args.inefficient_operators)
+solver = str(args.solver)
+time_limit = args.time_limit
+verbose = bool(args.verbose)
 
 for instance_path in input_folder_path.iterdir():
 
@@ -43,8 +47,10 @@ for instance_path in input_folder_path.iterdir():
     if verbose:
         print(f'End model  {instance_path} creation. Took {creation_elapsed_time} seconds.')
 
-    opt = pyo.SolverFactory('gurobi')
-    opt.options['TimeLimit'] = 60
+    opt = pyo.SolverFactory(solver)
+
+    if time_limit is not None:
+        opt.options['TimeLimit'] = time_limit
 
     if verbose:
         print(f'Start  {instance_path} solving process')
