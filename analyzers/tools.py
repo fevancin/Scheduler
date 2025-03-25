@@ -88,10 +88,6 @@ def generate_averages_plot(input_folder_path):
 
     group_names = []
 
-    model_creation_time_averages = []
-    model_solving_time_averages = []
-    solver_internal_time_averages = []
-
     averages = {
         'model_creation_time': [],
         'model_solving_time': [],

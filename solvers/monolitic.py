@@ -45,7 +45,7 @@ for instance_path in input_folder_path.iterdir():
     model = get_monolitic_model(instance, use_inefficient_operators)
     creation_elapsed_time = perf_counter() - creation_start_time
     if verbose:
-        print(f'End model  {instance_path} creation. Took {creation_elapsed_time} seconds.')
+        print(f'End model {instance_path} creation. Took {creation_elapsed_time} seconds.')
 
     opt = pyo.SolverFactory(solver)
 
@@ -53,12 +53,12 @@ for instance_path in input_folder_path.iterdir():
         opt.options['TimeLimit'] = time_limit
 
     if verbose:
-        print(f'Start  {instance_path} solving process')
+        print(f'Start {instance_path} solving process')
     solving_start_time = perf_counter()
     model_results = opt.solve(model, tee=verbose)
     solving_elapsed_time = perf_counter() - solving_start_time
     if verbose:
-        print(f'End  {instance_path} solving process. Took {solving_elapsed_time} seconds.')
+        print(f'End {instance_path} solving process. Took {solving_elapsed_time} seconds.')
 
     results = get_results_from_monolitic_model(model)
 
