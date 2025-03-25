@@ -60,8 +60,6 @@ for instance_path in input_folder_path.iterdir():
     if verbose:
         print(f'End {instance_path} solving process. Took {solving_elapsed_time} seconds.')
 
-    results = get_results_from_monolitic_model(model)
-
     model.solutions.store_to(model_results)
     solution = model_results.solution[0]
     lower_bound = float(model_results['problem'][0]['Lower bound'])
@@ -69,7 +67,7 @@ for instance_path in input_folder_path.iterdir():
     gap = float(solution['gap'])
     value = float(solution['objective']['total_satisfied_service_durations_scaled_by_priority']['Value'])
 
-    results['info'] = {
+    results = {'info': {
         'method': 'milp_monolitic',
         'model_creation_time': creation_elapsed_time,
         'model_solving_time': solving_elapsed_time,
@@ -80,7 +78,9 @@ for instance_path in input_folder_path.iterdir():
         'upper_bound': upper_bound,
         'gap': gap,
         'objective_function_value': value
-    }
+    }}
+    
+    results.update(get_results_from_monolitic_model(model))
 
     # write results to file
     result_path = instance_path.parent.joinpath(f'SOL_{instance_path.name}')
