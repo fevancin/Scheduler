@@ -6,6 +6,221 @@ import csv
 import json
 
 
+
+def get_total_window_number(instance):
+    
+    window_number = 0
+
+    for patient in instance['patients'].values():
+        for protocol in patient['protocols'].values():
+
+            initial_shift = protocol['initial_shift']
+            
+            for protocol_service in protocol['protocol_services']:
+
+                start = protocol_service['start'] + initial_shift
+                tolerance = protocol_service['tolerance']
+                frequency = protocol_service['frequency']
+                times = protocol_service['times']
+
+                for central_day_index in range(start, start + frequency * times, frequency):
+
+                    is_window_inside = False
+
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+
+                        day_name = str(day_index)
+
+                        if day_name in instance['days']:
+                            is_window_inside = True
+                            break
+                    
+                    if is_window_inside:
+                        window_number += 1
+        
+    return window_number
+
+
+def get_normalized_disponibility_vs_requests(instance):
+
+    days_disponibility = {}
+
+    for day_name, day in instance['days'].items():
+
+        days_disponibility[day_name] = 0
+        
+        for care_unit in day.values():
+            for operator in care_unit.values():
+                days_disponibility[day_name] += operator['duration']
+
+    worst_case_request_scenario = {day_name: 0 for day_name in instance['days'].keys()}
+    tolerance_sum = 0
+    window_number = 0
+
+    for patient in instance['patients'].values():
+        for protocol in patient['protocols'].values():
+
+            initial_shift = protocol['initial_shift']
+            
+            for protocol_service in protocol['protocol_services']:
+
+                service_name = protocol_service['service']
+                service_duration = instance['services'][service_name]['duration']
+
+                start = protocol_service['start'] + initial_shift
+                tolerance = protocol_service['tolerance']
+                frequency = protocol_service['frequency']
+                times = protocol_service['times']
+
+                for central_day_index in range(start, start + frequency * times, frequency):
+
+                    is_window_inside = False
+
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+
+                        day_name = str(day_index)
+
+                        if day_name in instance['days']:
+                            worst_case_request_scenario[day_name] += service_duration
+                            is_window_inside = True
+
+                    if is_window_inside:
+                        window_number += 1
+                        tolerance_sum += tolerance
+
+    disponibility_vs_requests = sum(days_disponibility[day_name] / worst_case_request_scenario[day_name] for day_name in instance['days'].keys())
+    average_tolerance = tolerance_sum / window_number
+
+    return disponibility_vs_requests / average_tolerance
+
+
+def get_average_time_slots_per_care_unit(instance):
+
+    time_slots_global_sum = 0
+    care_unit_number = 0
+
+    for day in instance['days'].values():
+        for care_unit in day.values():
+
+            care_unit_number += 1
+            
+            for operator in care_unit.values():
+                time_slots_global_sum += operator['duration']
+    
+    return time_slots_global_sum / care_unit_number
+
+
+def get_max_request_in_same_day_per_patient(instance):
+
+    day_number = len(instance['days'].keys())
+    min_day = min([int(day_name) for day_name in instance['days'].keys()])
+
+    overlap_window_day_number = 0
+
+    for patient in instance['patients'].values():
+
+        windows = []
+
+        for protocol in patient['protocols'].values():
+            
+            initial_shift = protocol['initial_shift']
+            
+            for protocol_service in protocol['protocol_services']:
+
+                start = protocol_service['start'] + initial_shift
+                tolerance = protocol_service['tolerance']
+                frequency = protocol_service['frequency']
+                times = protocol_service['times']
+
+                for central_day_index in range(start, start + frequency * times, frequency):
+
+                    window = {
+                        'start': central_day_index - tolerance,
+                        'end': central_day_index + tolerance
+                    }
+
+                    if window['start'] < min_day:
+                        window['start'] = min_day
+                    if window['end'] > min_day + day_number - 1:
+                        window['end'] = min_day + day_number - 1
+                    
+                    if window['end'] >= window['start']:
+                        windows.append(window)
+        
+        for index in range(len(windows) - 1):
+            for other_index in range(index + 1, len(windows)):
+
+                if (windows[index]['start'] <= windows[other_index]['start'] and windows[index]['end'] >= windows[other_index]['start']):
+                    min_end = min(windows[index]['end'], windows[other_index]['end'])
+                    overlap_window_day_number += min_end - windows[other_index]['start']
+                    continue
+
+                if (windows[other_index]['start'] <= windows[index]['start'] and windows[other_index]['end'] >= windows[index]['start']):
+                    min_end = min(windows[index]['end'], windows[other_index]['end'])
+                    overlap_window_day_number += min_end - windows[index]['start']
+
+    return overlap_window_day_number
+
+
+def generate_csv_instances_file(input_folder_path, group_prefix=None):
+    
+    results_data = []
+
+    # iterate every directory
+    for group_path in input_folder_path.iterdir():
+        
+        if not group_path.is_dir():
+            continue
+
+        if group_prefix is not None and not group_path.name.startswith(group_prefix):
+            continue
+
+        # iterate every instance
+        for instance_path in group_path.iterdir():
+
+            # only valid JSON files that starts with 'SOL_'
+            if instance_path.suffix != '.json':
+                continue
+            if instance_path.name == 'info.json':
+                continue
+            if instance_path.name.startswith('SOL_'):
+                continue
+
+            with open(instance_path, 'r') as file:
+                instance = json.load(file)
+            
+            # compute request number
+            window_number = get_total_window_number(instance)
+
+            # add results to the result object
+            results_info = {}
+            results_info['group'] = instance_path.parent.name
+            results_info['instance'] = instance_path.name
+            results_info['window_number'] = window_number
+            results_info['average_windows_per_patient'] = window_number / len(instance['patients'].keys())
+            results_info['normalized_disponibility_vs_requests'] = get_normalized_disponibility_vs_requests(instance)
+            results_info['average_time_slots_per_care_unit'] = get_average_time_slots_per_care_unit(instance)
+            results_info['max_request_in_same_day_per_patient'] = get_max_request_in_same_day_per_patient(instance)
+
+            results_data.append(results_info)
+
+    field_names = [
+        'group',
+        'instance',
+        'window_number',
+        'average_windows_per_patient',
+        'normalized_disponibility_vs_requests',
+        'average_time_slots_per_care_unit',
+        'get_max_request_in_same_day_per_patient'
+    ]
+
+    # write results to csv file
+    with open(input_folder_path.joinpath('instances.csv'), 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=field_names, dialect='excel-tab')
+        writer.writeheader()
+        writer.writerows(results_data)
+
+
 def generate_csv_results_file(input_folder_path, group_prefix=None):
     
     results_data = []
@@ -373,21 +588,174 @@ def plot_all_instances(input_folder_path, group_prefix=None):
             continue
 
         # iterate every instance
-        for results_path in group_path.iterdir():
+        for instance_path in group_path.iterdir():
 
             # only valid JSON files that starts with 'SOL_'
-            if results_path.suffix != '.json':
+            if instance_path.suffix != '.json':
                 continue
-            if results_path.name == 'info.json':
+            if instance_path.name == 'info.json':
                 continue
-            if not results_path.name.startswith('SOL_'):
+            if instance_path.name.startswith('SOL_'):
                 continue
 
-            with open(results_path, 'r') as file:
-                results = json.load(file)
-                
-            instance_path = results_path.parent.joinpath(results_path.name.removeprefix('SOL_'))
-            with open(instance_path) as file:
+            with open(instance_path, 'r') as file:
                 instance = json.load(file)
+                
+            plot_instance_care_unit_fullness(instance, instance_path.parent.joinpath('plots').joinpath(Path(f'fullness_cu_{instance_path.name.removesuffix(".json")}.png')))
+            plot_instance_patients_fullness(instance, instance_path.parent.joinpath('plots').joinpath(Path(f'fullness_pat_{instance_path.name.removesuffix(".json")}.png')))
             
-            plot_master_instance(instance, results, instance_path.parent.joinpath(instance_path.name.removesuffix('.json') + '.png'))
+            results_path = instance_path.parent.joinpath(f'SOL_{instance_path.name}')
+            if results_path.exists():
+                with open(results_path) as file:
+                    results = json.load(file)
+                
+                plot_master_instance(instance, results, instance_path.parent.joinpath(instance_path.name.removesuffix('.json') + '.png'))
+
+
+def plot_instance_care_unit_fullness(instance, save_path):
+
+    day_names = sorted(instance['days'].keys(), key=lambda v: int(v))
+    
+    care_unit_names = set()
+    for day in instance['days'].values():
+        care_unit_names.update(day.keys())
+    care_unit_names = sorted(care_unit_names)
+    
+    day_care_unit_capacity = []
+    for care_unit_name in care_unit_names:
+        row = []
+        for day_name in day_names:
+            row.append(sum(operator['duration'] for operator in instance['days'][day_name][care_unit_name].values()))
+        day_care_unit_capacity.append(row)
+
+    requests_per_day_care_unit = []
+    spread_requests_per_day_care_unit = []
+    for _ in range(len(care_unit_names)):
+        requests_per_day_care_unit.append([0 for _ in range(len(day_names))])
+        spread_requests_per_day_care_unit.append([0 for _ in range(len(day_names))])
+
+    for patient in instance['patients'].values():
+        for protocol in patient['protocols'].values():
+
+            initial_shift = protocol['initial_shift']
+            
+            for protocol_service in protocol['protocol_services']:
+
+                service_name = protocol_service['service']
+                care_unit_name = instance['services'][service_name]['care_unit']
+                service_duration = instance['services'][service_name]['duration']
+
+                start = protocol_service['start'] + initial_shift
+                tolerance = protocol_service['tolerance']
+                frequency = protocol_service['frequency']
+                times = protocol_service['times']
+
+                for central_day_index in range(start, start + frequency * times, frequency):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                        day_name = str(day_index)
+                        if day_name not in day_names or care_unit_name not in care_unit_names:
+                            continue
+
+                        coordinate = (day_names.index(day_name), care_unit_names.index(care_unit_name))
+                        requests_per_day_care_unit[coordinate[1]][coordinate[0]] += service_duration
+                        spread_requests_per_day_care_unit[coordinate[1]][coordinate[0]] += service_duration / (2 * tolerance + 1)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+    
+    plt.sca(ax1)
+
+    ax1.imshow(requests_per_day_care_unit)
+
+    ax1.set_xticks(range(len(day_names)), labels=day_names, rotation=45, ha="right", rotation_mode="anchor")
+    ax1.set_yticks(range(len(care_unit_names)), labels=care_unit_names)
+
+    for j in range(len(day_names)):
+        for i in range(len(care_unit_names)):
+            ax1.text(j, i, round(requests_per_day_care_unit[i][j] / day_care_unit_capacity[i][j], 3), ha="center", va="center", color="w", fontsize=3)
+
+    plt.sca(ax2)
+
+    ax2.imshow(spread_requests_per_day_care_unit)
+
+    ax2.set_xticks(range(len(day_names)), labels=day_names, rotation=45, ha="right", rotation_mode="anchor")
+    ax2.set_yticks(range(len(care_unit_names)), labels=care_unit_names)
+
+    for j in range(len(day_names)):
+        for i in range(len(care_unit_names)):
+            ax2.text(j, i, round(spread_requests_per_day_care_unit[i][j] / day_care_unit_capacity[i][j], 3), ha="center", va="center", color="w", fontsize=3)
+    
+    ax1.set_title("Care units occupation percentages")
+    ax2.set_title("Spreaded occupation percentages")
+    fig.suptitle(f'Instance {save_path.name.removesuffix(".png")}', weight='bold')
+    fig.tight_layout()
+
+
+    plt.savefig(save_path, dpi=500)
+    plt.close('all')
+
+
+def plot_instance_patients_fullness(instance, save_path):
+
+    day_names = sorted(instance['days'].keys(), key=lambda v: int(v))
+    
+    patient_names = sorted(instance['patients'].keys())
+
+    requests_per_day_patient = []
+    spread_requests_per_day_patient = []
+    for _ in range(len(patient_names)):
+        requests_per_day_patient.append([0 for _ in range(len(day_names))])
+        spread_requests_per_day_patient.append([0 for _ in range(len(day_names))])
+
+    for patient_name, patient in instance['patients'].items():
+        for protocol in patient['protocols'].values():
+
+            initial_shift = protocol['initial_shift']
+            
+            for protocol_service in protocol['protocol_services']:
+
+                start = protocol_service['start'] + initial_shift
+                tolerance = protocol_service['tolerance']
+                frequency = protocol_service['frequency']
+                times = protocol_service['times']
+
+                for central_day_index in range(start, start + frequency * times, frequency):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                        day_name = str(day_index)
+                        if day_name not in day_names:
+                            continue
+
+                        coordinate = (day_names.index(day_name), patient_names.index(patient_name))
+                        requests_per_day_patient[coordinate[1]][coordinate[0]] += 1
+                        spread_requests_per_day_patient[coordinate[1]][coordinate[0]] += 1 / (2 * tolerance + 1)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+    
+    plt.sca(ax1)
+
+    ax1.imshow(requests_per_day_patient)
+
+    ax1.set_xticks(range(len(day_names)), labels=day_names, rotation=45, ha="right", rotation_mode="anchor", fontsize=3)
+    ax1.set_yticks(range(len(patient_names)), labels=patient_names, fontsize=3)
+
+    for j in range(len(day_names)):
+        for i in range(len(patient_names)):
+            ax1.text(j, i, requests_per_day_patient[i][j], ha="center", va="center", color="w", fontsize=3)
+
+    plt.sca(ax2)
+
+    ax2.imshow(spread_requests_per_day_patient)
+
+    ax2.set_xticks(range(len(day_names)), labels=day_names, rotation=45, ha="right", rotation_mode="anchor", fontsize=3)
+    ax2.set_yticks(range(len(patient_names)), labels=patient_names, fontsize=3)
+
+    for j in range(len(day_names)):
+        for i in range(len(patient_names)):
+            ax2.text(j, i, round(spread_requests_per_day_patient[i][j], 3), ha="center", va="center", color="w", fontsize=3)
+    
+    ax1.set_title("Patient occupation percentages")
+    ax2.set_title("Spreaded occupation percentages")
+    fig.suptitle(f'Instance {save_path.name.removesuffix(".png")}', weight='bold')
+    fig.tight_layout()
+
+    plt.savefig(save_path, dpi=500)
+    plt.close('all')
