@@ -27,7 +27,7 @@ def get_total_window_number(instance):
 
                     is_window_inside = False
 
-                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance + 1):
 
                         day_name = str(day_index)
 
@@ -76,7 +76,7 @@ def get_normalized_disponibility_vs_requests(instance):
 
                     is_window_inside = False
 
-                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance + 1):
 
                         day_name = str(day_index)
 
@@ -88,10 +88,14 @@ def get_normalized_disponibility_vs_requests(instance):
                         window_number += 1
                         tolerance_sum += tolerance
 
-    disponibility_vs_requests = sum([days_disponibility[day_name] / worst_case_request_scenario[day_name] for day_name in instance['days'].keys() if worst_case_request_scenario[day_name] > 0])
-    average_tolerance = tolerance_sum / window_number
+    disponibility_vs_requests = 0
+    for day_name in instance['days'].keys():
+        if worst_case_request_scenario[day_name] > 0:
+            disponibility_vs_requests += days_disponibility[day_name] / worst_case_request_scenario[day_name]
 
-    return disponibility_vs_requests / average_tolerance
+    average_window_size = (tolerance_sum / window_number) * 2 + 1
+
+    return disponibility_vs_requests / average_window_size, average_window_size
 
 
 def get_average_time_slots_per_care_unit(instance):
@@ -169,7 +173,7 @@ def get_max_requests_in_same_day_per_patient(instance):
 
     global_max_overlap_windows = 0
 
-    for patient in instance['patients'].values():
+    for patient_name, patient in instance['patients'].items():
 
         overlappings = [0 for _ in range(day_number)]
 
@@ -185,7 +189,7 @@ def get_max_requests_in_same_day_per_patient(instance):
                 times = protocol_service['times']
 
                 for central_day_index in range(start, start + frequency * times, frequency):
-                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance + 1):
 
                         if day_index < min_day or day_index >= day_number + min_day:
                             continue
@@ -228,6 +232,7 @@ def generate_csv_instances_file(input_folder_path, group_prefix=None):
             
             # compute request number
             window_number = get_total_window_number(instance)
+            normalized_disponibility_vs_requests, average_window_size = get_normalized_disponibility_vs_requests(instance)
 
             # add results to the result object
             results_info = {}
@@ -235,7 +240,8 @@ def generate_csv_instances_file(input_folder_path, group_prefix=None):
             results_info['instance'] = instance_path.name
             results_info['window_number'] = window_number
             results_info['average_windows_per_patient'] = round(window_number / len(instance['patients'].keys()), 4)
-            results_info['normalized_disponibility_vs_requests'] = round(get_normalized_disponibility_vs_requests(instance), 4)
+            results_info['normalized_disponibility_vs_requests'] = round(normalized_disponibility_vs_requests, 4)
+            results_info['average_window_size'] = round(average_window_size, 4)
             results_info['average_time_slots_per_care_unit'] = round(get_average_time_slots_per_care_unit(instance), 4)
             results_info['average_overlapping_requests_per_patient'] = round(get_average_overlapping_requests_per_patient(instance), 4)
             results_info['max_requests_in_same_day_per_patient'] = round(get_max_requests_in_same_day_per_patient(instance), 4)
@@ -248,6 +254,7 @@ def generate_csv_instances_file(input_folder_path, group_prefix=None):
         'window_number',
         'average_windows_per_patient',
         'normalized_disponibility_vs_requests',
+        'average_window_size',
         'average_time_slots_per_care_unit',
         'average_overlapping_requests_per_patient',
         'max_requests_in_same_day_per_patient'
@@ -700,7 +707,7 @@ def plot_instance_care_unit_fullness(instance, save_path):
                 times = protocol_service['times']
 
                 for central_day_index in range(start, start + frequency * times, frequency):
-                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance + 1):
                         day_name = str(day_index)
                         if day_name not in day_names or care_unit_name not in care_unit_names:
                             continue
@@ -767,7 +774,8 @@ def plot_instance_patients_fullness(instance, save_path):
                 times = protocol_service['times']
 
                 for central_day_index in range(start, start + frequency * times, frequency):
-                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance + 1):
+                        
                         day_name = str(day_index)
                         if day_name not in day_names:
                             continue
@@ -795,10 +803,6 @@ def plot_instance_patients_fullness(instance, save_path):
 
     ax2.set_xticks(range(len(day_names)), labels=day_names, rotation=45, ha="right", rotation_mode="anchor", fontsize=3)
     ax2.set_yticks(range(len(patient_names)), labels=patient_names, fontsize=3)
-
-    for j in range(len(day_names)):
-        for i in range(len(patient_names)):
-            ax2.text(j, i, round(spread_requests_per_day_patient[i][j], 3), ha="center", va="center", color="w", fontsize=3)
     
     ax1.set_title("Patient occupation percentages")
     ax2.set_title("Spreaded occupation percentages")

@@ -7,7 +7,6 @@ parser = argparse.ArgumentParser(prog='Instance analizer', description='This pro
 parser.add_argument('-i', '--input', type=Path, help='Folder with instance groups', required=True)
 parser.add_argument('-g', '--group-name', type=str, help='Only analize a specific group')
 parser.add_argument('-p', '--plot-instances', action='store_true', help='If every instance will have its own plot')
-parser.add_argument('-v', '--verbose', action='store_true')
 args = parser.parse_args()
 
 input_folder_path = Path(args.input).resolve()
