@@ -88,7 +88,7 @@ def get_normalized_disponibility_vs_requests(instance):
                         window_number += 1
                         tolerance_sum += tolerance
 
-    disponibility_vs_requests = sum(days_disponibility[day_name] / worst_case_request_scenario[day_name] for day_name in instance['days'].keys())
+    disponibility_vs_requests = sum([days_disponibility[day_name] / worst_case_request_scenario[day_name] for day_name in instance['days'].keys() if worst_case_request_scenario[day_name] > 0])
     average_tolerance = tolerance_sum / window_number
 
     return disponibility_vs_requests / average_tolerance
@@ -211,7 +211,7 @@ def generate_csv_instances_file(input_folder_path, group_prefix=None):
         'average_windows_per_patient',
         'normalized_disponibility_vs_requests',
         'average_time_slots_per_care_unit',
-        'get_max_request_in_same_day_per_patient'
+        'max_request_in_same_day_per_patient'
     ]
 
     # write results to csv file
@@ -378,7 +378,7 @@ def generate_averages_plot(input_folder_path, group_prefix=None):
             averages['solver_internal_time'].append(solver_internal_time_sum / instance_number)
 
     # plot the averages for each group
-    plot_averages(group_names, averages, input_folder_path.joinpath('plots').joinpath('time_averages.png'))
+    plot_averages(group_names, averages, input_folder_path.joinpath('time_averages.png'))
 
 
 def plot_master_instance(instance, results, save_path):
@@ -609,7 +609,8 @@ def plot_all_instances(input_folder_path, group_prefix=None):
 
             with open(instance_path, 'r') as file:
                 instance = json.load(file)
-                
+            
+            group_path.joinpath('plots').mkdir(exist_ok=True)
             plot_instance_care_unit_fullness(instance, instance_path.parent.joinpath('plots').joinpath(Path(f'fullness_cu_{instance_path.name.removesuffix(".json")}.png')))
             plot_instance_patients_fullness(instance, instance_path.parent.joinpath('plots').joinpath(Path(f'fullness_pat_{instance_path.name.removesuffix(".json")}.png')))
             
@@ -697,7 +698,6 @@ def plot_instance_care_unit_fullness(instance, save_path):
     ax2.set_title("Spreaded occupation percentages")
     fig.suptitle(f'Instance {save_path.name.removesuffix(".png")}', weight='bold')
     fig.tight_layout()
-
 
     plt.savefig(save_path, dpi=500)
     plt.close('all')
