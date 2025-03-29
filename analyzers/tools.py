@@ -110,7 +110,7 @@ def get_average_time_slots_per_care_unit(instance):
     return time_slots_global_sum / care_unit_number
 
 
-def get_max_request_in_same_day_per_patient(instance):
+def get_average_overlapping_requests_per_patient(instance):
 
     day_number = len(instance['days'].keys())
     min_day = min([int(day_name) for day_name in instance['days'].keys()])
@@ -159,7 +159,44 @@ def get_max_request_in_same_day_per_patient(instance):
                     min_end = min(windows[index]['end'], windows[other_index]['end'])
                     overlap_window_day_number += min_end - windows[index]['start']
 
-    return overlap_window_day_number
+    return overlap_window_day_number / len(instance['patients'].keys())
+
+
+def get_max_requests_in_same_day_per_patient(instance):
+
+    day_number = len(instance['days'].keys())
+    min_day = min([int(day_name) for day_name in instance['days'].keys()])
+
+    global_max_overlap_windows = 0
+
+    for patient in instance['patients'].values():
+
+        overlappings = [0 for _ in range(day_number)]
+
+        for protocol in patient['protocols'].values():
+            
+            initial_shift = protocol['initial_shift']
+            
+            for protocol_service in protocol['protocol_services']:
+
+                start = protocol_service['start'] + initial_shift
+                tolerance = protocol_service['tolerance']
+                frequency = protocol_service['frequency']
+                times = protocol_service['times']
+
+                for central_day_index in range(start, start + frequency * times, frequency):
+                    for day_index in range(central_day_index - tolerance, central_day_index + tolerance):
+
+                        if day_index < min_day or day_index >= day_number + min_day:
+                            continue
+                        
+                        overlappings[day_index - min_day] += 1
+
+        max_overlap_windows = max(overlappings)
+        if max_overlap_windows > global_max_overlap_windows:
+            global_max_overlap_windows = max_overlap_windows
+    
+    return global_max_overlap_windows
 
 
 def generate_csv_instances_file(input_folder_path, group_prefix=None):
@@ -197,10 +234,11 @@ def generate_csv_instances_file(input_folder_path, group_prefix=None):
             results_info['group'] = instance_path.parent.name
             results_info['instance'] = instance_path.name
             results_info['window_number'] = window_number
-            results_info['average_windows_per_patient'] = window_number / len(instance['patients'].keys())
-            results_info['normalized_disponibility_vs_requests'] = get_normalized_disponibility_vs_requests(instance)
-            results_info['average_time_slots_per_care_unit'] = get_average_time_slots_per_care_unit(instance)
-            results_info['max_request_in_same_day_per_patient'] = get_max_request_in_same_day_per_patient(instance)
+            results_info['average_windows_per_patient'] = round(window_number / len(instance['patients'].keys()), 4)
+            results_info['normalized_disponibility_vs_requests'] = round(get_normalized_disponibility_vs_requests(instance), 4)
+            results_info['average_time_slots_per_care_unit'] = round(get_average_time_slots_per_care_unit(instance), 4)
+            results_info['average_overlapping_requests_per_patient'] = round(get_average_overlapping_requests_per_patient(instance), 4)
+            results_info['max_requests_in_same_day_per_patient'] = round(get_max_requests_in_same_day_per_patient(instance), 4)
 
             results_data.append(results_info)
 
@@ -211,7 +249,8 @@ def generate_csv_instances_file(input_folder_path, group_prefix=None):
         'average_windows_per_patient',
         'normalized_disponibility_vs_requests',
         'average_time_slots_per_care_unit',
-        'max_request_in_same_day_per_patient'
+        'average_overlapping_requests_per_patient',
+        'max_requests_in_same_day_per_patient'
     ]
 
     # write results to csv file
