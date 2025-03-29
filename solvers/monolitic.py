@@ -40,12 +40,12 @@ for instance_path in input_folder_path.iterdir():
         instance = json.load(file)
 
     if verbose:
-        print(f'Start model {instance_path} creation')
+        print(f'Start model creation of instance {instance_path}')
     creation_start_time = perf_counter()
     model = get_monolitic_model(instance, use_inefficient_operators)
     creation_elapsed_time = perf_counter() - creation_start_time
     if verbose:
-        print(f'End model {instance_path} creation. Took {creation_elapsed_time} seconds.')
+        print(f'End model creation of instance {instance_path}. Took {creation_elapsed_time} seconds.')
 
     opt = pyo.SolverFactory(solver)
 
@@ -53,12 +53,12 @@ for instance_path in input_folder_path.iterdir():
         opt.options['TimeLimit'] = time_limit
 
     if verbose:
-        print(f'Start {instance_path} solving process')
+        print(f'Start solving process of instance {instance_path}')
     solving_start_time = perf_counter()
     model_results = opt.solve(model, tee=verbose)
     solving_elapsed_time = perf_counter() - solving_start_time
     if verbose:
-        print(f'End {instance_path} solving process. Took {solving_elapsed_time} seconds.')
+        print(f'End solving process of instance {instance_path}. Took {solving_elapsed_time} seconds.')
 
     model.solutions.store_to(model_results)
     solution = model_results.solution[0]
@@ -75,7 +75,7 @@ for instance_path in input_folder_path.iterdir():
         'status': str(model_results.solver.status),
         'termination_condition': str(model_results.solver.termination_condition),
         'lower_bound': lower_bound,
-        'upper_bound': upper_bound,
+        'upper_bound': upper_bound if upper_bound <= 1e9 else 'infinity',
         'gap': gap,
         'objective_function_value': value
     }}
