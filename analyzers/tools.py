@@ -4,7 +4,7 @@ from matplotlib.patches import Patch
 import numpy as np
 import csv
 import json
-
+from pathlib import Path
 
 
 def get_total_window_number(instance):
@@ -247,17 +247,27 @@ def generate_csv_results_file(input_folder_path, group_prefix=None):
 
             with open(results_path, 'r') as file:
                 results = json.load(file)
+            
+            # compute request numbers
+            rejected_request_number = len(results['rejected'])
+            request_number = rejected_request_number
+            for day in results['scheduled'].values():
+                request_number += len(day)
 
-            # add those results to the result list
+            # add those results to the result object
             results_info = results['info']
             results_info['group'] = results_path.parent.name
             results_info['instance'] = results_path.name
+            results_info['request_number'] = request_number
+            results_info['rejected_request_number'] = rejected_request_number
 
-            results_data.append(results['info'])
+            results_data.append(results_info)
 
     field_names = [
         'group',
         'instance',
+        'request_number',
+        'rejected_request_number',
         'method',
         'model_creation_time',
         'model_solving_time',
@@ -283,7 +293,7 @@ def plot_averages(group_names, averages, save_path):
     width = 0.25
     multiplier = 0
 
-    fig, ax = plt.subplots(layout='constrained')
+    fig, ax = plt.subplots()
 
     for attribute, measurement in averages.items():
 
@@ -368,12 +378,12 @@ def generate_averages_plot(input_folder_path, group_prefix=None):
             averages['solver_internal_time'].append(solver_internal_time_sum / instance_number)
 
     # plot the averages for each group
-    plot_averages(group_names, averages, input_folder_path.joinpath('time_averages.png'))
+    plot_averages(group_names, averages, input_folder_path.joinpath('plots').joinpath('time_averages.png'))
 
 
 def plot_master_instance(instance, results, save_path):
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    fig, (ax1, ax2) = plt.subplots(2, 1)
     fig.set_size_inches(16, 8)
 
     slot_width = 2.0
@@ -571,7 +581,6 @@ def plot_master_instance(instance, results, save_path):
 
     fig.suptitle(f'Solution of instance {save_path.name.removesuffix(".png")}', weight='bold')
 
-    # plt.show()
     plt.savefig(save_path, dpi=500)
     plt.close('all')
 
