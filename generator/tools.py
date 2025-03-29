@@ -135,7 +135,7 @@ def generate_protocol(config, services=None):
     # compute the initial shift
     day_number = config['day']['number']
     max_initial_shift = int(day_number * config['protocol']['initial_shift_spread_percentage'])
-    initial_shift = random.randint(-max_initial_shift, max_initial_shift)
+    initial_shift = random.randint(0, max_initial_shift)
 
     # compute the protocol size
     if (type(config['protocol']['services_per_protocol']) is not int and
@@ -171,7 +171,7 @@ def generate_protocol(config, services=None):
         frequency = generate_value(config['protocol']['service']['frequency'])
         
         max_start_shift = int(day_number * config['protocol']['service']['start_spread_percentage'])
-        start = random.randint(-max_start_shift, max_start_shift) + first_day
+        start = random.randint(0, max_start_shift) + first_day
 
         # times must be at least 1
         if (type(config['protocol']['service']['times']) is not int and
@@ -205,9 +205,14 @@ def generate_protocol(config, services=None):
 
         # if times is big enough that some window are completely over
         # 'day_number', trim the excess
-        max_times = int((day_number - start - initial_shift) / frequency)
-        if times > max_times:
-            times = max_times
+        if start + initial_shift + frequency * (times - 1) - tolerance > day_number - 1:
+
+            max_times = int((day_number - 1 - start - initial_shift) / frequency) + 1
+            
+            if start + initial_shift + frequency * max_times - tolerance > day_number - 1:
+                max_times -= 1
+            
+            times = max_times + 1
         
         if times > 0:
             protocol_service_index += 1
