@@ -55,7 +55,10 @@ for instance_path in input_folder_path.iterdir():
     if verbose:
         print(f'Start solving process of instance {instance_path}')
     solving_start_time = perf_counter()
-    model_results = opt.solve(model, tee=verbose)
+    if verbose:
+        model_results = opt.solve(model, tee=True, logfile=f'{instance_path.removesuffix(".json")}.log')
+    else:
+        model_results = opt.solve(model)
     solving_elapsed_time = perf_counter() - solving_start_time
     if verbose:
         print(f'End solving process of instance {instance_path}. Took {solving_elapsed_time} seconds.')

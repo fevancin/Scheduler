@@ -14,7 +14,7 @@ try:
 except ImportError:
     from yaml import Loader
 
-parser = argparse.ArgumentParser(prog='Instances generator', description='This program is used to generate random intances for the master or subproblem')
+parser = argparse.ArgumentParser(prog='Master generator', description='This program is used to generate random intances for the master or subproblem')
 parser.add_argument('-c', '--config', type=Path, help='Configuration file path', required=True)
 parser.add_argument('-o', '--output', type=Path, help='Output path', required=True)
 parser.add_argument('-d', '--delete-prev', help='Remove previous instance data in the output location', action='store_true')
@@ -73,7 +73,7 @@ for group_config in config['groups']:
         group_index += 1
 
 # eventual deletion of previous data
-if delete_prev:
+if delete_prev and output_folder_path.exists():
 
     shutil.rmtree(output_folder_path)
 

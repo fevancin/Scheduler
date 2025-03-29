@@ -665,7 +665,7 @@ def plot_all_instances(input_folder_path, group_prefix=None):
                 with open(results_path) as file:
                     results = json.load(file)
                 
-                plot_master_instance(instance, results, instance_path.parent.joinpath(instance_path.name.removesuffix('.json') + '.png'))
+                plot_master_instance(instance, results, instance_path.parent.joinpath('plots').joinpath(instance_path.name.removesuffix('.json') + '.png'))
 
 
 def plot_instance_care_unit_fullness(instance, save_path):

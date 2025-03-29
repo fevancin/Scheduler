@@ -10,7 +10,6 @@ parser.add_argument('-p', '--plot-instances', action='store_true', help='If ever
 args = parser.parse_args()
 
 input_folder_path = Path(args.input).resolve()
-verbose = bool(args.verbose)
 group_name = None if args.group_name is None else str(args.group_name)
 plot_instances = bool(args.plot_instances)
 
