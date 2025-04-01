@@ -51,14 +51,17 @@ for instance_path in input_folder_path.iterdir():
 
     if time_limit is not None:
         opt.options['TimeLimit'] = time_limit
+    opt.options['SoftMemLimit'] = 8
 
     if verbose:
         print(f'Start solving process of instance {instance_path}')
     solving_start_time = perf_counter()
+    
     if verbose:
-        model_results = opt.solve(model, tee=True, logfile=f'{instance_path.removesuffix(".json")}.log')
+        model_results = opt.solve(model, tee=True, logfile=f'{str(instance_path).removesuffix(".json")}.log')
     else:
         model_results = opt.solve(model)
+    
     solving_elapsed_time = perf_counter() - solving_start_time
     if verbose:
         print(f'End solving process of instance {instance_path}. Took {solving_elapsed_time} seconds.')
@@ -68,6 +71,8 @@ for instance_path in input_folder_path.iterdir():
     lower_bound = float(model_results['problem'][0]['Lower bound'])
     upper_bound = float(model_results['problem'][0]['Upper bound'])
     gap = float(solution['gap'])
+    if gap <= 1e-5 and lower_bound != upper_bound:
+        gap = (upper_bound - lower_bound) / upper_bound
     value = float(solution['objective']['total_satisfied_service_durations_scaled_by_priority']['Value'])
 
     results = {'info': {

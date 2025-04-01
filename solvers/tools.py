@@ -128,7 +128,8 @@ def get_monolitic_model(instance, use_inefficient_operators) -> pyo.ConcreteMode
     # decision variables in the problem definition.
     schedulable_tuples_with_operators = set()
 
-    schedulable_tuples_with_operators_and_windows = set()
+    if use_inefficient_operators:
+        schedulable_tuples_with_operators_and_windows = set()
 
     # for each window...
     for patient_name, service_name, window_start, window_end in windows:
@@ -144,7 +145,8 @@ def get_monolitic_model(instance, use_inefficient_operators) -> pyo.ConcreteMode
                 # ...add a possible schedulable tuple
                 schedulable_tuples_with_operators.add((patient_name, service_name, day, care_unit_name, operator_name))
 
-                schedulable_tuples_with_operators_and_windows.add((patient_name, service_name, day, care_unit_name, operator_name, window_start, window_end))
+                if use_inefficient_operators:
+                    schedulable_tuples_with_operators_and_windows.add((patient_name, service_name, day, care_unit_name, operator_name, window_start, window_end))
 
     # set of all (patient1, patient2, service1, service2, day, care_unit, operator1, operator2) found.
     # This tuples will indicize all overlap constraints between same patient and same operator.
@@ -172,7 +174,8 @@ def get_monolitic_model(instance, use_inefficient_operators) -> pyo.ConcreteMode
 
     model.window_index = pyo.Set(initialize=sorted(windows))
     model.do_index = pyo.Set(initialize=sorted(schedulable_tuples_with_operators))
-    model.duration_index = pyo.Set(initialize=sorted(schedulable_tuples_with_operators_and_windows))
+    if use_inefficient_operators:
+        model.duration_index = pyo.Set(initialize=sorted(schedulable_tuples_with_operators_and_windows))
     model.overlap_index = pyo.Set(initialize=sorted(overlap_tuples))
     del windows, schedulable_tuples_with_operators, overlap_tuples
 
@@ -409,8 +412,14 @@ def get_monolitic_model(instance, use_inefficient_operators) -> pyo.ConcreteMode
 def get_results_from_monolitic_model(model):
 
     results_grouped_per_day = {}
-    for p, s, d, c, o in model.do_index:
-        if pyo.value(model.do[p, s, d, c, o]) >= 0.5:
+    for p, s, ws, we in model.window_index:
+        if pyo.value(model.window[p, s, ws, we]) < 0.5:
+            continue
+        for pp, ss, d, c, o in model.do_index:
+            if p != pp or s != ss or int(d) < ws or int(d) > we:
+                continue
+            if pyo.value(model.do[p, s, d, c, o]) < 0.5:
+                continue
             day_name = str(d)
             time_slot = None
             for pp, ss, ws, we in model.window_index:
