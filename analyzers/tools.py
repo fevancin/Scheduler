@@ -295,25 +295,25 @@ def generate_csv_results_file(input_folder_path, group_prefix=None):
                 results = json.load(file)
             
             # compute request numbers
-            rejected_request_number = len(results['rejected'])
-            request_number = rejected_request_number
+            rejected_window_number = len(results['rejected'])
+            window_number = rejected_window_number
             for day in results['scheduled'].values():
-                request_number += len(day)
+                window_number += len(day)
 
             # add those results to the result object
             results_info = results['info']
             results_info['group'] = results_path.parent.name
             results_info['instance'] = results_path.name
-            results_info['request_number'] = request_number
-            results_info['rejected_request_number'] = rejected_request_number
+            results_info['window_number'] = window_number
+            results_info['rejected_window_number'] = rejected_window_number
 
             results_data.append(results_info)
 
     field_names = [
         'group',
         'instance',
-        'request_number',
-        'rejected_request_number',
+        'window_number',
+        'rejected_window_number',
         'method',
         'model_creation_time',
         'model_solving_time',
@@ -619,7 +619,9 @@ def plot_master_instance(instance, results, save_path):
 
     # add axis ticks
     ax2.set_xticks(list(day_x_positions.values())[:-1], labels=list(care_unit_x_positions.keys()))
-    ax2.set_yticks(list(request_labels.keys()), labels=list(request_labels.values()))
+    if len(request_labels.values()) < 50:
+        ax2.tick_params(labelleft=False)
+        ax2.set_yticks(list(request_labels.keys()), labels=list(request_labels.values()))
 
     ax2.set_title('Patient request windows')
     ax2.set_xlabel('Days', weight='bold', labelpad=6)
