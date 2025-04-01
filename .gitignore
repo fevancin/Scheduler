@@ -1,4 +1,19 @@
-__pycache__
-*.json
-*.yaml
+__pycache__/
+
+# instance folder with test data
 instances/
+
+# instances and logs
+*.json
+*.log
+
+# plots and analysis results
+*.png
+*.csv
+
+# configuration files
+*.yaml
+
+# temporary development files
+*.txt
+temp.*
