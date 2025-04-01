@@ -109,8 +109,8 @@ for group_config in config['groups']:
     
     # if specified, add the configuration file in the group directory
     if config['include_info_in_group_folder'] is True:
-        with open(group_path.joinpath('info.json'), 'w') as file:
-            json.dump(group_config, file, indent=4)
+        with open(group_path.joinpath('info.yaml'), 'w') as file:
+            yaml.dump(group_config, file, default_flow_style=False)
     
     # each group instance will use the same seed
     random.seed(group_config['seed'])
